@@ -1,0 +1,7 @@
+src/config.js
+.env
+.env.local
+.env*.local
+.vercel
+.DS_Store
+Thumbs.db

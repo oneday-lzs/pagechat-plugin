@@ -1,0 +1,125 @@
+body {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.wrap {
+  width: min(560px, calc(100% - 32px));
+  margin: 48px auto;
+}
+
+header {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.seal {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: var(--gold);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 50%;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+header p {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+form {
+  display: grid;
+  gap: 16px;
+  background: var(--ink-4);
+  border: 0;
+  padding: 22px;
+  border-radius: 20px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+input,
+select {
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--text);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.row input {
+  flex: 1;
+}
+
+.row button,
+.actions button {
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 10px 14px;
+  color: var(--text);
+  border-radius: 999px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.check input {
+  width: auto;
+  accent-color: var(--gold);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.primary {
+  background: var(--gold) !important;
+  color: #fff !important;
+  border-color: var(--gold) !important;
+  font-weight: 600;
+}
+
+.status {
+  margin: 0;
+  font-size: 13px;
+}
+
+.status.ok {
+  color: var(--moss);
+}
+
+.status.err {
+  color: var(--danger);
+}
