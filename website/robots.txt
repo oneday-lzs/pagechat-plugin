@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://pagechat-plugin.vercel.app/sitemap.xml
+Sitemap: https://pagechat-plugin-tvkj.vercel.app/sitemap.xml

@@ -40,16 +40,16 @@ In the Vercel project → Settings → Environment Variables:
 
 Redeploy after saving env vars. Then open:
 
-- `https://your-project.vercel.app/` — homepage
-- `https://your-project.vercel.app/privacy` — privacy policy (use this URL in the Chrome Web Store)
-- `https://your-project.vercel.app/support` — support
-- `https://your-project.vercel.app/health` → `"ok": true` and `"deepseekConfigured": true`
+- `https://pagechat-plugin-tvkj.vercel.app/` — homepage
+- `https://pagechat-plugin-tvkj.vercel.app/privacy` — privacy policy (use this URL in the Chrome Web Store)
+- `https://pagechat-plugin-tvkj.vercel.app/support` — support
+- `https://pagechat-plugin-tvkj.vercel.app/health` → `"ok": true` and `"deepseekConfigured": true`
 
 Copy `src/config.example.js` to `src/config.js` and set:
 
 ```js
 const HOSTED_API = {
-  proxyUrl: "https://your-project.vercel.app/api/chat",
+  proxyUrl: "https://pagechat-plugin-tvkj.vercel.app/api/chat",
   appToken: "same value as APP_TOKEN on Vercel"
 };
 ```
@@ -83,9 +83,8 @@ manifest.json
 website/               # Vercel static site (home, privacy, support)
 api/chat.js            # Vercel streaming proxy (holds the model key)
 api/health.js
-src/background.js      # side panel, context menus, calls Vercel
+src/background.js      # side panel, context menus, site crawl, calls Vercel
 src/config.js          # Vercel URL + APP_TOKEN (gitignored)
-src/site.js            # same-site crawl and dossier
 ui/sidepanel.html      # chat UI
 ui/options.html        # temperature and crawl limits only
 icons/

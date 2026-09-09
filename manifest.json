@@ -3,7 +3,7 @@
   "name": "PageChat – AI Webpage Summarizer",
   "short_name": "PageChat",
   "description": "Summarize any webpage or whole site, chat about the tab, extract company info, and translate selections. Ready to use — no API key setup.",
-  "version": "1.3.0",
+  "version": "1.3.2",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Open PageChat",

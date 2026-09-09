@@ -748,7 +748,8 @@ function quickPrompt(kind) {
   return map[kind] || kind;
 }
 
-const PREVIEW_DOSSIER = `[Site dossier]
+function getPreviewDossier() {
+  return `[Site dossier]
 Site: example.com
 Source: preview sample, 3 pages read
 
@@ -779,12 +780,13 @@ Body: Sample about page. After you load the extension, PageChat crawls real Abou
 URL: https://example.com/contact
 Title: Contact
 Body: Sample contact page. No real phone or email in the source.`;
+}
 
 async function summarizeSite(mode = "site") {
   if (sending || crawling) return;
 
   const isCompany = mode === "company";
-  let extraContext = PREVIEW_DOSSIER;
+  let extraContext = getPreviewDossier();
   let host = "example.com";
   let pageCount = 3;
 
