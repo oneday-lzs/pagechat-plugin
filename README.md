@@ -7,6 +7,8 @@ Chrome side-panel assistant: chat with the current page, summarize a whole site,
 
 Users do not add an API key. The model key lives on Vercel. The extension only talks to your proxy.
 
+The public site (homepage, privacy, support) lives in `website/` and deploys on the same Vercel project as the chat API.
+
 ## Features
 
 - Click the toolbar icon to open a side-panel chat
@@ -38,6 +40,9 @@ In the Vercel project → Settings → Environment Variables:
 
 Redeploy after saving env vars. Then open:
 
+- `https://your-project.vercel.app/` — homepage
+- `https://your-project.vercel.app/privacy` — privacy policy (use this URL in the Chrome Web Store)
+- `https://your-project.vercel.app/support` — support
 - `https://your-project.vercel.app/health` → `"ok": true` and `"deepseekConfigured": true`
 
 Copy `src/config.example.js` to `src/config.js` and set:
@@ -75,6 +80,7 @@ const HOSTED_API = {
 
 ```
 manifest.json
+website/               # Vercel static site (home, privacy, support)
 api/chat.js            # Vercel streaming proxy (holds the model key)
 api/health.js
 src/background.js      # side panel, context menus, calls Vercel

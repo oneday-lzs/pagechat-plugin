@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pagechat-plugin.vercel.app/sitemap.xml

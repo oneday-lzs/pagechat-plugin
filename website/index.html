@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PageChat – AI Webpage Summarizer for Chrome</title>
+    <meta
+      name="description"
+      content="Chat with any webpage, summarize a whole site, extract company info, and translate selections. Free Chrome side panel. No API key setup."
+    />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://pagechat-plugin.vercel.app/" />
+    <link rel="icon" href="/icon.png" type="image/png" sizes="128x128" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <meta name="theme-color" content="#E8541A" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PageChat" />
+    <meta property="og:title" content="PageChat – AI Webpage Summarizer" />
+    <meta
+      property="og:description"
+      content="Summarize any webpage or whole site, extract company info, and chat about the tab. Ready to use — no API key."
+    />
+    <meta property="og:url" content="https://pagechat-plugin.vercel.app/" />
+    <meta property="og:image" content="https://pagechat-plugin.vercel.app/icon.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="PageChat – AI Webpage Summarizer" />
+    <meta
+      name="twitter:description"
+      content="Chrome side-panel assistant for webpages and sites. No API key setup."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "PageChat – AI Webpage Summarizer",
+        "alternateName": "PageChat",
+        "applicationCategory": "BrowserApplication",
+        "operatingSystem": "Chrome, Microsoft Edge",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "url": "https://pagechat-plugin.vercel.app/",
+        "description": "Summarize any webpage or whole site, chat about the tab, extract company info, and translate selections. No API key setup."
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <img src="/icon.png" width="32" height="32" alt="" />
+          PageChat
+        </a>
+        <nav aria-label="Primary">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/support">Support</a>
+        </nav>
+        <a class="btn btn-primary btn-sm" href="https://github.com/oneday-lzs/pagechat-plugin">Get PageChat</a>
+      </div>
+    </header>
+
+    <main id="content">
+      <section class="hero">
+        <div class="wrap hero-grid">
+          <div>
+            <p class="eyebrow">Chrome side-panel assistant</p>
+            <h1>Chat with any webpage.</h1>
+            <p class="lede">
+              Summarize a page or a whole site, extract company details, and translate selections.
+              Free to use. No account. No API key to paste.
+            </p>
+            <div class="cta-row">
+              <a class="btn btn-primary" href="https://github.com/oneday-lzs/pagechat-plugin">Get PageChat</a>
+              <a class="btn btn-ghost" href="#features">See what it does</a>
+            </div>
+            <p class="note">Works in Chrome. Shortcut Alt+Y. Chats stay on your computer.</p>
+          </div>
+          <div class="panel" aria-hidden="true">
+            <div class="panel-top">
+              <span class="seal">P</span>
+              <strong>PageChat</strong>
+            </div>
+            <div class="thread">
+              <p class="msg user">Summarize this pricing page in 4 bullets.</p>
+              <p class="msg bot">
+                <small>PageChat</small>
+                Free: side-panel chat, no key setup.<br />
+                Include this page when you want the model to read the tab.<br />
+                Summarize site rolls up About, product, and contact pages.<br />
+                Company info pulls name, address, phone, and filings from the footer.
+              </p>
+            </div>
+            <div class="composer">
+              <p>Message PageChat</p>
+              <div class="chips">
+                <span>Include this page</span>
+                <span>Summarize site</span>
+                <span>Company info</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features">
+        <div class="wrap">
+          <h2 class="section-title">Built for reading the web faster</h2>
+          <p class="section-copy">PageChat sits in the Chrome side panel so you never leave the page.</p>
+          <div class="grid">
+            <article class="card">
+              <span class="n">01</span>
+              <h3>Chat about this tab</h3>
+              <p>Ask questions in plain language. Turn on Include this page when the answer should come from the current tab.</p>
+            </article>
+            <article class="card">
+              <span class="n">02</span>
+              <h3>Summarize a whole site</h3>
+              <p>Reads public same-site pages and rolls them into one brief: brand, offer, structure, and gaps.</p>
+            </article>
+            <article class="card">
+              <span class="n">03</span>
+              <h3>Extract company info</h3>
+              <p>Pulls legal name, address, phone, email, and filing numbers from footer, copyright, and structured data.</p>
+            </article>
+            <article class="card">
+              <span class="n">04</span>
+              <h3>Translate a selection</h3>
+              <p>Highlight text, right-click, and translate without copying it into another tool.</p>
+            </article>
+            <article class="card">
+              <span class="n">05</span>
+              <h3>No key to configure</h3>
+              <p>Install and start. The model runs through PageChat’s hosted proxy. Settings only cover temperature and crawl limits.</p>
+            </article>
+            <article class="card">
+              <span class="n">06</span>
+              <h3>Chats stay local</h3>
+              <p>Conversations live in Chrome storage on your computer. Export any thread as Markdown.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="how">
+        <div class="wrap">
+          <h2 class="section-title">How it works</h2>
+          <p class="section-copy">Three steps. No signup.</p>
+          <div class="steps">
+            <article>
+              <h3>1. Install</h3>
+              <p>Add PageChat in Chrome, then pin it. Click the icon or press Alt+Y to open the side panel.</p>
+            </article>
+            <article>
+              <h3>2. Open a page</h3>
+              <p>Stay on the tab you care about. Check Include this page only when you want the model to read it.</p>
+            </article>
+            <article>
+              <h3>3. Ask or summarize</h3>
+              <p>Chat, summarize the site, extract company info, or translate the selection from the right-click menu.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="faq">
+        <div class="wrap">
+          <h2 class="section-title">Questions</h2>
+          <details open>
+            <summary>Do I need my own API key?</summary>
+            <p>No. PageChat is ready to use after install. The model key stays on our server, not in the extension.</p>
+          </details>
+          <details>
+            <summary>Is page content always sent?</summary>
+            <p>No. Default chat does not include the tab. Content is sent only when you check Include this page, summarize the site, extract company info, or send a selection from the right-click menu.</p>
+          </details>
+          <details>
+            <summary>Which pages can it read?</summary>
+            <p>Most public http(s) pages. Chrome Web Store, extension pages, some PDFs, and chrome:// URLs cannot be read. Pages behind login, and URLs the site does not link to, are not crawled.</p>
+          </details>
+          <details>
+            <summary>Is it free?</summary>
+            <p>Yes. There is no subscription wall in the extension.</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <small>© 2026 PageChat</small>
+        <nav aria-label="Footer">
+          <a href="/privacy">Privacy</a>
+          <a href="/support">Support</a>
+          <a href="https://github.com/oneday-lzs/pagechat-plugin">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
