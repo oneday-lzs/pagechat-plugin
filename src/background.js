@@ -598,6 +598,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === MENU.translate) {
     pending = {
       action: "send",
+      agent: "translate",
       includePage: false,
       text: `Translate the following into English. Keep the meaning, no extra commentary:\n\n${selection}`
     };

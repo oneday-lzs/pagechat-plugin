@@ -143,10 +143,15 @@ body {
 }
 
 .chat-mode .page-only,
-.page-mode .chat-only {
+.page-mode .chat-only,
+.translate-mode .chat-only,
+.translate-mode .page-only,
+.chat-mode .translate-only,
+.page-mode .translate-only {
   display: none !important;
 }
 
+.translate-mode .empty,
 .chat-mode .empty {
   margin-top: 12vh;
 }
@@ -246,6 +251,25 @@ body {
   max-width: 100%;
   font-size: 15px;
   line-height: 1.65;
+}
+
+.msg.user .attach-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.msg.user .attach-preview img {
+  max-width: 180px;
+  max-height: 120px;
+  border-radius: 10px;
+  display: block;
+}
+
+.msg.user .file-chip {
+  font-size: 12px;
+  color: #5b5b68;
 }
 
 .msg.assistant .bubble.markdown {
@@ -570,7 +594,7 @@ body {
 }
 
 .composer {
-  padding: 0 14px 12px;
+  padding: 0 14px 10px;
 }
 
 .quick {
@@ -601,11 +625,21 @@ body {
   background: #fff0e8;
 }
 
+.quick button.active {
+  color: #fff;
+  background: var(--gold);
+}
+
+.quick button.active:hover {
+  color: #fff;
+  background: var(--gold);
+}
+
 .box {
   background: #fff;
   border: 1px solid #e6e8ee;
-  padding: 8px 12px 6px 14px;
-  border-radius: 18px;
+  padding: 10px 12px 8px 14px;
+  border-radius: 16px;
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.05);
 }
 
@@ -619,11 +653,20 @@ textarea {
   border: 0;
   background: transparent;
   resize: none;
-  min-height: 24px;
+  display: block;
+  height: 40px;
+  min-height: 40px;
   max-height: 120px;
-  line-height: 1.5;
+  padding: 0;
+  line-height: 22px;
   font-size: 14px;
+  overflow-y: auto;
   color: var(--text);
+}
+
+textarea:placeholder-shown {
+  height: 40px !important;
+  min-height: 40px;
 }
 
 textarea::placeholder {
@@ -639,6 +682,7 @@ textarea:focus {
   align-items: center;
   gap: 8px;
   min-height: 32px;
+  margin-top: 6px;
 }
 
 .toggle {
@@ -646,11 +690,88 @@ textarea:focus {
   align-items: center;
   gap: 6px;
   margin: 0;
-  margin-right: auto;
   color: #8a8a98;
   font-size: 12px;
   cursor: pointer;
   user-select: none;
+  white-space: nowrap;
+}
+
+.attach-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #8a8a98;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.attach-btn:hover {
+  color: var(--gold);
+  background: var(--ink-3);
+}
+
+.attach-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.attach-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.attach-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 6px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f7f9;
+  font-size: 11px;
+  color: #5b5b68;
+}
+
+.attach-chip img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.attach-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.attach-chip button {
+  border: 0;
+  background: transparent;
+  color: #8a8a98;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.box-grow {
+  flex: 1;
+  min-width: 4px;
 }
 
 .toggle input {

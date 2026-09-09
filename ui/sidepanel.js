@@ -7,13 +7,19 @@ const DEFAULT_SETTINGS = {
   maxSitePages: 10
 };
 
+const TRANSLATE_PROMPT = `You are PageChat Translate. Your job is to translate.
+Detect the source language. If the user names a target language, use it. Otherwise: translate Chinese into English, and translate English or any other language into Simplified Chinese.
+Keep meaning, tone, names, and formatting. Output the translation only — no preface, notes, or quotation marks unless the user asks for an explanation.
+If page content is provided and the user did not paste other source text, translate that page or selection.`;
+
 const CHAT_PROMPT = `You are PageChat, a general-purpose AI assistant. Answer directly. You can write code, translate, plan, and edit drafts.
+You can see images the user attaches. Describe and answer from those images when they are present.
 Match the user's language. Default to English if unclear.
 If no page content is provided, do not mention, guess, or summarize the website the user might be browsing.
 Be clear and natural. Use steps only when they help.`;
 
 const PAGE_PROMPT = `You are PageChat, a Chrome side-panel assistant for the current webpage or website.
-If page content or a "Site dossier" is provided, answer only from that material and say whether it came from this page or this site.
+If page content or a "Site dossier" is provided, answer only from that material and any images the user attached. Say whether it came from this page, this site, or an attached image.
 Match the user's language. Default to English if unclear.
 Be accurate and concise. Use bullets when they help. If something is missing, write "Not found in the source" — do not invent facts.`;
 
@@ -92,7 +98,10 @@ const els = {
   toast: document.getElementById("toast"),
   pageQuick: document.getElementById("pageQuick"),
   chatQuick: document.getElementById("chatQuick"),
-  siteBtn: document.getElementById("siteBtn")
+  siteBtn: document.getElementById("siteBtn"),
+  attachBtn: document.getElementById("attachBtn"),
+  fileInput: document.getElementById("fileInput"),
+  attachList: document.getElementById("attachList")
 };
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -103,6 +112,14 @@ let abort = null;
 let sending = false;
 let crawling = false;
 let toastTimer = 0;
+let pendingAttachments = [];
+let activeAgent = "chat";
+
+const MAX_ATTACHMENTS = 4;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_DATA_URL_CHARS = 350000;
+const MAX_REQUEST_IMAGE_CHARS = 2500000;
+const TEXT_FILE_RE = /\.(txt|md|csv|json|xml|html|css|js|ts|py|log|svg)$/i;
 
 function uid() {
   return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -376,21 +393,66 @@ function showToast(text) {
   }, 2400);
 }
 
+function currentAgent() {
+  return activeAgent === "translate" ? "translate" : "chat";
+}
+
+function renderAgentBar() {
+  const agent = currentAgent();
+  document.querySelectorAll("[data-agent]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.agent === agent);
+  });
+}
+
+async function selectAgent(agent) {
+  if (agent !== "chat" && agent !== "translate") return;
+  activeAgent = agent;
+  let conv = activeConv();
+  if (conv?.messages?.length && conv.agent !== agent) {
+    conv = await createConversation(false);
+  } else if (!conv) {
+    conv = await createConversation(false);
+  }
+  conv.agent = agent;
+  if (agent === "translate") {
+    els.includePage.checked = false;
+    if (conv.title === "New chat" || conv.title === "新对话") conv.title = "Translate";
+  } else if (!conv.messages.length && conv.title === "Translate") {
+    conv.title = "New chat";
+  }
+  await persistMode();
+  await persist();
+  applyMode();
+  renderAll();
+}
+
 function pageModeOn() {
   return Boolean(els.includePage?.checked);
 }
 
 function applyMode() {
   const on = pageModeOn();
-  document.body.classList.toggle("page-mode", on);
-  document.body.classList.toggle("chat-mode", !on);
-  els.input.placeholder = on ? "Ask about this page, translate, or just chat…" : "Message PageChat";
-  if (!on && !crawling) {
-    els.pageChip.hidden = true;
-    els.subtitle.textContent = IS_EXTENSION ? "Chat" : "Browser preview";
-  } else if (on) {
-    renderPageChip();
+  const translate = currentAgent() === "translate";
+  document.body.classList.toggle("translate-mode", translate);
+  document.body.classList.toggle("page-mode", on && !translate);
+  document.body.classList.toggle("chat-mode", !on && !translate);
+  if (translate) {
+    els.input.placeholder = "Paste text to translate";
+    els.subtitle.textContent = "Translate";
+    if (on) renderPageChip();
+    else if (!crawling) {
+      els.pageChip.hidden = true;
+    }
+  } else {
+    els.input.placeholder = on ? "Ask about this page, translate, or just chat…" : "Message PageChat";
+    if (!on && !crawling) {
+      els.pageChip.hidden = true;
+      els.subtitle.textContent = IS_EXTENSION ? "Chat" : "Browser preview";
+    } else if (on) {
+      renderPageChip();
+    }
   }
+  renderAgentBar();
 }
 
 async function persistMode() {
@@ -403,23 +465,62 @@ async function loadState() {
   settings = { ...DEFAULT_SETTINGS, ...(local.pageyu_settings || {}) };
   conversations = local.pageyu_conversations || [];
   activeId = local.pageyu_active_id || conversations[0]?.id || "";
+  activeAgent = "chat";
   els.includePage.checked = settings.includePageByDefault;
   if (!conversations.length) {
     await createConversation(false);
+  } else {
+    const conv = activeConv();
+    if (conv?.agent === "translate" && !conv.messages.length) {
+      conv.agent = "chat";
+      if (conv.title === "Translate") conv.title = "New chat";
+    } else if (conv?.agent === "translate") {
+      const chatConv = conversations.find((item) => item.agent !== "translate");
+      if (chatConv) activeId = chatConv.id;
+      else await createConversation(false);
+    }
   }
 }
 
+function serializeConversations(stripImages = false) {
+  return conversations.map((conv) => ({
+    ...conv,
+    messages: conv.messages.map((msg) => ({
+      ...msg,
+      attachments: msg.attachments?.map((file) => {
+        const slim = slimAttachment(file);
+        if (stripImages) delete slim.dataUrl;
+        return slim;
+      })
+    }))
+  }));
+}
+
 async function persist() {
-  await storage.set("local", {
-    pageyu_conversations: conversations,
-    pageyu_active_id: activeId
-  });
+  try {
+    await storage.set("local", {
+      pageyu_conversations: serializeConversations(false),
+      pageyu_active_id: activeId
+    });
+  } catch {
+    try {
+      await storage.set("local", {
+        pageyu_conversations: serializeConversations(true),
+        pageyu_active_id: activeId
+      });
+      showToast("Storage is full; image previews were not saved.");
+    } catch {
+      showToast("Could not save chats");
+    }
+  }
 }
 
 async function createConversation(render = true) {
+  const agent = activeAgent === "translate" ? "translate" : "chat";
   const conv = {
     id: uid(),
-    title: "New chat",
+    title: agent === "translate" ? "Translate" : "New chat",
+    agent,
     messages: [],
     createdAt: now(),
     updatedAt: now()
@@ -427,7 +528,10 @@ async function createConversation(render = true) {
   conversations.unshift(conv);
   activeId = conv.id;
   await persist();
-  if (render) renderAll();
+  if (render) {
+    applyMode();
+    renderAll();
+  }
   return conv;
 }
 
@@ -440,8 +544,20 @@ function renderThread() {
   const conv = activeConv();
   els.thread.innerHTML = "";
   if (!conv || !conv.messages.length) {
-    els.thread.innerHTML = pageModeOn()
-      ? `
+    els.thread.innerHTML =
+      currentAgent() === "translate"
+        ? `
+      <div class="empty">
+        <h1>Translate</h1>
+        <p>Paste text and send. Chinese goes to English, everything else to Simplified Chinese — or name a language.</p>
+        <div class="suggestions">
+          <button type="button" data-quick="tr-page-zh">Translate this page into Simplified Chinese</button>
+          <button type="button" data-quick="tr-page-en">Translate this page into English</button>
+          <button type="button" data-quick="tr-selection">Translate the selected text</button>
+        </div>
+      </div>`
+        : pageModeOn()
+          ? `
       <div class="empty">
         <h1>Start with this site</h1>
         <p>Summarize the site, extract company info, or ask about this page.</p>
@@ -451,7 +567,7 @@ function renderThread() {
           <button type="button" data-quick="summarize">Summarize the key points on this page</button>
         </div>
       </div>`
-      : `
+          : `
       <div class="empty">
         <h1>Hi, I'm PageChat</h1>
         <p>How can I help?</p>
@@ -473,7 +589,17 @@ function renderThread() {
         ? renderMarkdown(message.content)
         : escapeHtml(message.content).replaceAll("\n", "<br>");
     if (message.role === "user") {
-      article.innerHTML = `<div class="bubble">${body}</div>`;
+      const files = message.attachments || [];
+      const previews = files.length
+        ? `<div class="attach-preview">${files
+            .map((file) =>
+              file.dataUrl?.startsWith("data:image/")
+                ? `<img src="${file.dataUrl}" alt="${escapeHtml(file.name)}">`
+                : `<span class="file-chip">${escapeHtml(file.name)}</span>`
+            )
+            .join("")}</div>`
+        : "";
+      article.innerHTML = `<div class="bubble">${previews}${body}</div>`;
     } else {
       article.innerHTML = `
         <div class="msg-head">
@@ -568,9 +694,259 @@ function titleFrom(text) {
   return clean.slice(0, 22) || "New chat";
 }
 
+function canSend() {
+  return Boolean(els.input.value.trim() || pendingAttachments.length);
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function filesFromClipboard(event) {
+  const dt = event.clipboardData;
+  if (!dt) return [];
+  const collected = [];
+  const seen = new Set();
+  const candidates = [];
+  for (const item of dt.items || []) {
+    if (item.kind === "file" || (item.type || "").startsWith("image/")) {
+      candidates.push(item.getAsFile());
+    }
+  }
+  for (const file of dt.files || []) candidates.push(file);
+  for (const file of candidates) {
+    if (!file) continue;
+    const key = `${file.name}:${file.size}:${file.type}:${file.lastModified}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    collected.push(file);
+  }
+  return collected;
+}
+
+function isImageFile(file) {
+  const type = file.type || "";
+  if (type === "image/svg+xml") return false;
+  return type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file.name || "");
+}
+
+function dataUrlToFile(dataUrl, name) {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUrl);
+  if (!match) return null;
+  const type = match[1];
+  const binary = atob(match[2].replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new File([bytes], name, { type });
+}
+
+function filesFromHtmlClipboard(html) {
+  if (!html) return [];
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const files = [];
+  let index = 0;
+  for (const img of doc.querySelectorAll("img[src]")) {
+    const src = img.getAttribute("src") || "";
+    if (!src.startsWith("data:image/")) continue;
+    const file = dataUrlToFile(src, `pasted-image-${Date.now()}-${index}.png`);
+    if (file) {
+      files.push(file);
+      index += 1;
+    }
+  }
+  return files;
+}
+
+function collectPastedFiles(event) {
+  const fromEvent = filesFromClipboard(event);
+  if (fromEvent.length) return fromEvent;
+  return filesFromHtmlClipboard(event.clipboardData?.getData("text/html") || "");
+}
+
+function isTextFile(file) {
+  const type = file.type || "";
+  return type.startsWith("text/") || type === "application/json" || TEXT_FILE_RE.test(file.name);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsText(file);
+  });
+}
+
+function attachmentContext(files, { mentionImages = false } = {}) {
+  return (files || [])
+    .map((file) => {
+      if (file.text) {
+        return `[Attached file: ${file.name}]\n${file.text}`;
+      }
+      if (file.kind === "image" && file.dataUrl && !mentionImages) return "";
+      if (file.kind === "image") {
+        return `[Attached image: ${file.name}]`;
+      }
+      return `[Attached file: ${file.name} (${file.type || "unknown"}, ${formatSize(file.size || 0)}). Binary content was not extracted.]`;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function userContentForModel(item, includePixels = false) {
+  const files = item.attachments || [];
+  const images = includePixels ? files.filter((file) => file.kind === "image" && file.dataUrl?.startsWith("data:image/")) : [];
+  const text = [item.content, attachmentContext(files, { mentionImages: !includePixels })].filter(Boolean).join("\n\n");
+  if (!images.length) return text;
+  const parts = [{ type: "text", text: text || "Please look at the attached image(s)." }];
+  for (const image of images) {
+    parts.push({
+      type: "image_url",
+      image_url: { url: image.dataUrl }
+    });
+  }
+  return parts;
+}
+
+function compressImageDataUrl(dataUrl, maxEdge = 1280, quality = 0.82) {
+  return new Promise((resolve) => {
+    const finish = (out) => {
+      resolve(out && out.startsWith("data:image/") && out.length <= MAX_DATA_URL_CHARS ? out : "");
+    };
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let { width, height } = img;
+        const scale = Math.min(1, maxEdge / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        let q = quality;
+        let out = "";
+        for (let i = 0; i < 8; i += 1) {
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          out = canvas.toDataURL("image/jpeg", q);
+          if (out.length <= MAX_DATA_URL_CHARS) break;
+          if (q > 0.4) q -= 0.1;
+          else {
+            width = Math.max(1, Math.round(width * 0.72));
+            height = Math.max(1, Math.round(height * 0.72));
+          }
+        }
+        finish(out);
+      } catch {
+        finish("");
+      }
+    };
+    img.onerror = () => finish("");
+    img.src = dataUrl;
+  });
+}
+
+function slimAttachment(file) {
+  const slim = {
+    kind: file.kind,
+    name: file.name,
+    type: file.type,
+    size: file.size
+  };
+  if (file.text) slim.text = file.text.slice(0, 24000);
+  if (file.dataUrl && file.dataUrl.startsWith("data:image/") && file.dataUrl.length <= MAX_DATA_URL_CHARS) {
+    slim.dataUrl = file.dataUrl;
+  }
+  return slim;
+}
+
+function renderAttachList() {
+  if (!els.attachList) return;
+  if (!pendingAttachments.length) {
+    els.attachList.hidden = true;
+    els.attachList.innerHTML = "";
+    return;
+  }
+  els.attachList.hidden = false;
+  els.attachList.innerHTML = pendingAttachments
+    .map((file, index) => {
+      const thumb = file.dataUrl?.startsWith("data:image/")
+        ? `<img src="${file.dataUrl}" alt="">`
+        : "";
+      return `<div class="attach-chip">${thumb}<span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span><button type="button" data-remove-attach="${index}" aria-label="Remove">×</button></div>`;
+    })
+    .join("");
+}
+
+async function addFiles(fileList) {
+  const incoming = [...fileList];
+  for (const file of incoming) {
+    if (pendingAttachments.length >= MAX_ATTACHMENTS) {
+      showToast(`You can attach up to ${MAX_ATTACHMENTS} files`);
+      break;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      showToast(`${file.name} is larger than 8 MB`);
+      continue;
+    }
+    try {
+      if (isImageFile(file)) {
+        const dataUrl = await compressImageDataUrl(await readFileAsDataUrl(file));
+        if (!dataUrl) {
+          showToast(`Could not attach ${file.name}`);
+          continue;
+        }
+        pendingAttachments.push({
+          kind: "image",
+          name: file.name,
+          type: "image/jpeg",
+          size: file.size,
+          dataUrl
+        });
+      } else if (isTextFile(file)) {
+        pendingAttachments.push({
+          kind: "file",
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          text: (await readFileAsText(file)).slice(0, 24000)
+        });
+      } else {
+        pendingAttachments.push({
+          kind: "file",
+          name: file.name,
+          type: file.type,
+          size: file.size
+        });
+      }
+    } catch {
+      showToast(`Could not read ${file.name}`);
+    }
+  }
+  renderAttachList();
+  if (!sending) els.sendBtn.disabled = !canSend();
+}
+
 function buildMessages(conv, includePage) {
+  const translate = conv.agent === "translate";
   const pageAware = Boolean(conv.extraContext) || includePage;
-  const messages = [{ role: "system", content: pageAware ? PAGE_PROMPT : CHAT_PROMPT }];
+  const messages = [
+    {
+      role: "system",
+      content: translate ? TRANSLATE_PROMPT : pageAware ? PAGE_PROMPT : CHAT_PROMPT
+    }
+  ];
   if (conv.extraContext) {
     messages.push({ role: "system", content: conv.extraContext });
   } else if (includePage && page) {
@@ -586,9 +962,28 @@ function buildMessages(conv, includePage) {
       content: `[Current page]\nTitle: ${page.title}\nURL: ${page.url}\n${meta ? `${meta}\n` : ""}${page.selection ? `Selection: ${page.selection.slice(0, 2000)}\n` : ""}Body:\n${page.text.slice(0, limit)}`
     });
   }
-  for (const item of conv.messages) {
+  const pixelIndexes = new Set();
+  let imageBudget = MAX_REQUEST_IMAGE_CHARS;
+  for (let i = conv.messages.length - 1; i >= 0; i -= 1) {
+    const item = conv.messages[i];
+    if (item.error || item.role !== "user") continue;
+    const size = (item.attachments || [])
+      .filter((file) => file.kind === "image" && file.dataUrl)
+      .reduce((sum, file) => sum + file.dataUrl.length, 0);
+    if (!size) continue;
+    if (size > imageBudget) {
+      if (pixelIndexes.size) break;
+      continue;
+    }
+    pixelIndexes.add(i);
+    imageBudget -= size;
+  }
+  for (const [index, item] of conv.messages.entries()) {
     if (item.error) continue;
-    messages.push({ role: item.role, content: item.content });
+    messages.push({
+      role: item.role,
+      content: item.role === "user" ? userContentForModel(item, pixelIndexes.has(index)) : item.content
+    });
   }
   return messages;
 }
@@ -653,9 +1048,14 @@ async function streamChat({ messages, onDelta, signal }) {
   });
 }
 
-async function sendText(text, { includePage = els.includePage.checked, extraContext = "", title = "" } = {}) {
+async function sendText(text, { includePage = els.includePage.checked, extraContext = "", title = "", attachments } = {}) {
   const content = text.trim();
-  if (!content || sending) return;
+  const files = Array.isArray(attachments) ? attachments.slice() : pendingAttachments.slice();
+  if ((!content && !files.length) || sending) return;
+  if (!Array.isArray(attachments)) {
+    pendingAttachments = [];
+    renderAttachList();
+  }
   sending = true;
   setBusy(true);
 
@@ -667,10 +1067,13 @@ async function sendText(text, { includePage = els.includePage.checked, extraCont
     let conv = activeConv();
     if (!conv) conv = await createConversation(false);
     if (title) conv.title = title;
-    else if (conv.title === "New chat" || conv.title === "新对话") conv.title = titleFrom(content);
+    else if (conv.title === "New chat" || conv.title === "新对话") {
+      conv.title = titleFrom(content || files[0]?.name || "Attachment");
+    }
     if (extraContext) conv.extraContext = extraContext;
+    if (!conv.agent) conv.agent = activeAgent;
 
-    conv.messages.push({ role: "user", content, at: now() });
+    conv.messages.push({ role: "user", content, attachments: files, at: now() });
     const assistant = { role: "assistant", content: "", at: now(), streaming: true };
     conv.messages.push(assistant);
     conv.updatedAt = now();
@@ -715,13 +1118,19 @@ function setBusy(busy) {
   document.querySelectorAll(".quick button").forEach((button) => {
     button.disabled = busy;
   });
-  els.sendBtn.disabled = busy || !els.input.value.trim();
+  if (els.attachBtn) els.attachBtn.disabled = busy;
+  if (els.fileInput) els.fileInput.disabled = busy;
+  els.sendBtn.disabled = busy || !canSend();
 }
 
 function resizeInput() {
   const el = els.input;
-  el.style.height = "auto";
-  el.style.height = `${Math.min(Math.max(el.scrollHeight, 24), 120)}px`;
+  if (!el.value) {
+    el.style.height = "40px";
+    return;
+  }
+  el.style.height = "40px";
+  el.style.height = `${Math.min(Math.max(el.scrollHeight, 40), 120)}px`;
 }
 
 function openSettings() {
@@ -740,6 +1149,13 @@ function quickPrompt(kind) {
     translate: page?.selection
       ? `Translate the following into English. Keep the meaning, no extra commentary:\n\n${page.selection}`
       : "Translate the main content of this page into English.",
+    "tr-page-zh": "Translate this page into Simplified Chinese. Keep meaning and tone. Output only the translation.",
+    "tr-page-en": "Translate this page into English. Keep meaning and tone. Output only the translation.",
+    "tr-selection": page?.selection
+      ? `Translate the following. Detect the language and follow the Translate agent defaults. Output only the translation:\n\n${page.selection}`
+      : "Translate the selected text on this page. If nothing is selected, translate the main content.",
+    "tr-zh": "Translate into Simplified Chinese. Keep meaning and tone. Output only the translation.",
+    "tr-en": "Translate into English. Keep meaning and tone. Output only the translation.",
     "chat-write": "Write a concise weekly status update I can send as-is: progress, blockers, and next week. Start with a structure, then sample sentences.",
     "chat-explain": "Explain how large language models work in plain English for a non-technical reader, under 400 words.",
     "chat-code": "Write a short Python example: read a CSV, print missing-value counts per column, with brief comments.",
@@ -843,6 +1259,15 @@ async function consumePending() {
     els.includePage.checked = true;
     applyMode();
   }
+  if (pending.agent === "translate") {
+    activeAgent = "translate";
+    const conv = activeConv();
+    if (conv && !conv.messages.length) {
+      conv.agent = "translate";
+      if (conv.title === "New chat" || conv.title === "新对话") conv.title = "Translate";
+    } else await createConversation(false);
+    applyMode();
+  }
   if (pending.action === "site-summary") {
     await summarizeSite("site");
     return;
@@ -869,6 +1294,35 @@ function download(name, content) {
   URL.revokeObjectURL(url);
 }
 
+els.attachBtn?.addEventListener("click", () => els.fileInput?.click());
+els.fileInput?.addEventListener("change", async () => {
+  if (els.fileInput.files?.length) await addFiles(els.fileInput.files);
+  els.fileInput.value = "";
+});
+els.attachList?.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-remove-attach]");
+  if (!btn) return;
+  pendingAttachments.splice(Number(btn.dataset.removeAttach), 1);
+  renderAttachList();
+  if (!sending) els.sendBtn.disabled = !canSend();
+});
+
+window.addEventListener(
+  "paste",
+  (event) => {
+    if (sending) return;
+    const target = event.target;
+    if (target && target !== els.input && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+    const files = collectPastedFiles(event);
+    if (!files.length) return;
+    event.preventDefault();
+    addFiles(files).then(() => {
+      if (!sending) els.sendBtn.disabled = !canSend();
+    });
+  },
+  true
+);
+
 els.sendBtn.addEventListener("click", () => {
   const text = els.input.value;
   els.input.value = "";
@@ -878,7 +1332,7 @@ els.sendBtn.addEventListener("click", () => {
 });
 
 els.input.addEventListener("input", () => {
-  if (!sending) els.sendBtn.disabled = !els.input.value.trim();
+  if (!sending) els.sendBtn.disabled = !canSend();
   resizeInput();
 });
 
@@ -916,17 +1370,45 @@ els.includePage.addEventListener("change", async () => {
 });
 
 document.addEventListener("click", async (event) => {
+  const agentBtn = event.target.closest("[data-agent]");
+  if (agentBtn) {
+    await selectAgent(agentBtn.dataset.agent);
+    return;
+  }
   const quick = event.target.closest("[data-quick]");
   if (quick) {
-    if (quick.dataset.quick === "site") {
+    const kind = quick.dataset.quick;
+    if (kind.startsWith("tr-")) {
+      if (currentAgent() !== "translate") await selectAgent("translate");
+      const typed = els.input.value.trim();
+      if ((kind === "tr-zh" || kind === "tr-en") && typed) {
+        els.input.value = "";
+        resizeInput();
+        const target = kind === "tr-zh" ? "Simplified Chinese" : "English";
+        await sendText(
+          `Translate into ${target}. Keep meaning and tone. Output only the translation:\n\n${typed}`,
+          { includePage: false }
+        );
+        return;
+      }
+      if (!pageModeOn()) {
+        els.includePage.checked = true;
+        await persistMode();
+        applyMode();
+        await fetchPage();
+      }
+      await sendText(quickPrompt(kind), { includePage: true });
+      return;
+    }
+    if (kind === "site") {
       await summarizeSite("site");
       return;
     }
-    if (quick.dataset.quick === "company") {
+    if (kind === "company") {
       await summarizeSite("company");
       return;
     }
-    const pageTask = !quick.dataset.quick.startsWith("chat-");
+    const pageTask = !kind.startsWith("chat-");
     if (pageTask && !pageModeOn()) {
       els.includePage.checked = true;
       await persistMode();
@@ -967,10 +1449,12 @@ document.addEventListener("click", async (event) => {
     conv.messages.splice(assistantIndex, 1);
     const lastUserIndex = conv.messages.findLastIndex((item) => item.role === "user");
     if (lastUserIndex < 0) return;
-    const text = conv.messages[lastUserIndex].content;
+    const lastUser = conv.messages[lastUserIndex];
+    const text = lastUser.content;
+    const files = lastUser.attachments || [];
     conv.messages.splice(lastUserIndex, 1);
     await persist();
-    await sendText(text);
+    await sendText(text, { attachments: files });
     return;
   }
   const convEl = event.target.closest(".conv");
@@ -979,15 +1463,21 @@ document.addEventListener("click", async (event) => {
     event.stopPropagation();
     conversations = conversations.filter((item) => item.id !== del.dataset.del);
     if (!conversations.length) await createConversation(false);
-    if (!conversations.some((item) => item.id === activeId)) activeId = conversations[0].id;
+    if (!conversations.some((item) => item.id === activeId)) {
+      activeId = conversations[0].id;
+      activeAgent = activeConv()?.agent === "translate" ? "translate" : "chat";
+    }
     await persist();
+    applyMode();
     renderAll();
     return;
   }
   if (convEl?.dataset.id) {
     activeId = convEl.dataset.id;
+    activeAgent = activeConv()?.agent || "chat";
     await persist();
     els.drawer.hidden = true;
+    applyMode();
     renderAll();
   }
 });
@@ -996,7 +1486,11 @@ els.exportBtn.addEventListener("click", () => {
   const conv = activeConv();
   if (!conv) return;
   const body = conv.messages
-    .map((item) => `## ${item.role === "user" ? "You" : "PageChat"}\n\n${item.content}`)
+    .map((item) => {
+      const files = (item.attachments || []).map((file) => file.name).join(", ");
+      const extra = files ? `\n\nAttachments: ${files}` : "";
+      return `## ${item.role === "user" ? "You" : "PageChat"}\n\n${item.content}${extra}`;
+    })
     .join("\n\n");
   download(`${conv.title}.md`, `# ${conv.title}\n\n${body}\n`);
 });
@@ -1036,7 +1530,7 @@ if (IS_EXTENSION) {
   renderAll();
   if (pageModeOn()) await fetchPage();
   await consumePending();
-  els.sendBtn.disabled = !els.input.value.trim();
+  els.sendBtn.disabled = !canSend();
   resizeInput();
   els.input.focus();
 })();

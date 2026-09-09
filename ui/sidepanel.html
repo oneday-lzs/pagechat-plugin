@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
-  <body>
+  <body class="chat-mode">
     <div class="app">
       <header class="top">
         <button class="icon-btn" id="historyBtn" type="button" aria-label="Chats" title="Chats">
@@ -30,8 +30,8 @@
           </button>
           <button class="icon-btn" id="settingsBtn" type="button" aria-label="Settings" title="Settings">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-              <path d="M19.4 13a7.8 7.8 0 0 0 .1-2l2-1.5-2-3.5-2.4.7a8 8 0 0 0-1.7-1L15 3h-6l-.4 2.7a8 8 0 0 0-1.7 1L8.5 6 4.5 9.5 6.5 11a7.8 7.8 0 0 0 0 2l-2 1.5 2 3.5 2.4-.7a8 8 0 0 0 1.7 1L9 21h6l.4-2.7a8 8 0 0 0 1.7-1l2.4.7 2-3.5-2-1.5Z" />
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
             </svg>
           </button>
         </div>
@@ -51,25 +51,41 @@
           <button type="button" data-quick="site">Summarize site</button>
           <button type="button" data-quick="company">Company info</button>
           <button type="button" data-quick="summarize">Summarize page</button>
-          <button type="button" data-quick="translate">Translate selection</button>
+          <button type="button" data-agent="translate">Translate</button>
         </div>
         <div class="quick chat-only" id="chatQuick">
           <button type="button" data-quick="chat-write">Help me write</button>
           <button type="button" data-quick="chat-explain">Explain</button>
           <button type="button" data-quick="chat-code">Write code</button>
           <button type="button" data-quick="chat-plan">Make a plan</button>
+          <button type="button" data-agent="translate">Translate</button>
         </div>
-        <div class="box">
+        <div class="quick translate-only" id="translateQuick">
+          <button type="button" data-agent="chat">Chat</button>
+          <button type="button" data-quick="tr-zh">To Chinese</button>
+          <button type="button" data-quick="tr-en">To English</button>
+          <button type="button" data-quick="tr-page-zh">This page → 中文</button>
+          <button type="button" data-quick="tr-page-en">This page → English</button>
+        </div>
+          <div class="box">
           <textarea
             id="input"
             rows="1"
             placeholder="Message PageChat"
           ></textarea>
+          <div class="attach-list" id="attachList" hidden></div>
           <div class="box-bar">
             <label class="toggle">
               <input type="checkbox" id="includePage" />
               <span>Include this page</span>
             </label>
+            <button type="button" class="attach-btn" id="attachBtn" hidden aria-hidden="true" tabindex="-1">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21.4 11.2 12.6 20a5 5 0 0 1-7.1-7.1l9.5-9.5a3.2 3.2 0 0 1 4.5 4.5l-9.5 9.4a1.4 1.4 0 1 1-2-2l8.1-8.1" />
+              </svg>
+            </button>
+            <input id="fileInput" type="file" hidden multiple accept="image/*,.txt,.md,.csv,.json,.xml,.html,.css,.js,.ts,.py,.log,.pdf" />
+            <span class="box-grow"></span>
             <button type="button" class="send stop-fab" id="stopBtn" hidden aria-label="Stop">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="6" y="6" width="12" height="12" rx="2" />
