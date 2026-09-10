@@ -384,6 +384,42 @@ function activeConv() {
   return conversations.find((item) => item.id === activeId) || null;
 }
 
+function convAgent(conv) {
+  return conv?.agent === "translate" ? "translate" : "chat";
+}
+
+function isEmptyConversation(conv) {
+  return Boolean(conv && !(conv.messages && conv.messages.length));
+}
+
+function emptyConversationFor(agent) {
+  return conversations.find((item) => isEmptyConversation(item) && convAgent(item) === agent) || null;
+}
+
+function dedupeEmptyConversations(keepId = "") {
+  const seen = new Set();
+  if (keepId) {
+    const keep = conversations.find((item) => item.id === keepId);
+    if (keep && isEmptyConversation(keep)) seen.add(convAgent(keep));
+  }
+  conversations = conversations.filter((item) => {
+    if (!isEmptyConversation(item)) return true;
+    if (item.id === keepId) return true;
+    const agent = convAgent(item);
+    if (seen.has(agent)) return false;
+    seen.add(agent);
+    return true;
+  });
+}
+
+function syncNewChatButton() {
+  const alreadyNew = isEmptyConversation(activeConv()) && convAgent(activeConv()) === currentAgent();
+  els.newBtn.disabled = alreadyNew;
+  const label = alreadyNew ? "Already in a new chat" : "New chat";
+  els.newBtn.title = label;
+  els.newBtn.setAttribute("aria-label", label);
+}
+
 function showToast(text) {
   els.toast.hidden = false;
   els.toast.textContent = text;
@@ -479,6 +515,9 @@ async function loadState() {
       if (chatConv) activeId = chatConv.id;
       else await createConversation(false);
     }
+    const before = conversations.length;
+    dedupeEmptyConversations(activeId);
+    if (conversations.length !== before) await persist();
   }
 }
 
@@ -497,6 +536,10 @@ function serializeConversations(stripImages = false) {
 }
 
 async function persist() {
+  dedupeEmptyConversations(activeId);
+  if (!conversations.some((item) => item.id === activeId)) {
+    activeId = conversations[0]?.id || "";
+  }
   try {
     await storage.set("local", {
       pageyu_conversations: serializeConversations(false),
@@ -516,17 +559,37 @@ async function persist() {
 }
 
 async function createConversation(render = true) {
-  const agent = activeAgent === "translate" ? "translate" : "chat";
-  const conv = {
-    id: uid(),
-    title: agent === "translate" ? "Translate" : "New chat",
-    agent,
-    messages: [],
-    createdAt: now(),
-    updatedAt: now()
-  };
-  conversations.unshift(conv);
-  activeId = conv.id;
+  const agent = currentAgent();
+  const title = agent === "translate" ? "Translate" : "New chat";
+  const current = activeConv();
+  if (isEmptyConversation(current) && convAgent(current) === agent) {
+    if (render) {
+      applyMode();
+      renderAll();
+    }
+    return current;
+  }
+
+  let conv = emptyConversationFor(agent);
+  if (conv) {
+    conv.agent = agent;
+    conv.title = title;
+    conv.updatedAt = now();
+    delete conv.extraContext;
+    conversations = [conv, ...conversations.filter((item) => item.id !== conv.id)];
+    activeId = conv.id;
+  } else {
+    conv = {
+      id: uid(),
+      title,
+      agent,
+      messages: [],
+      createdAt: now(),
+      updatedAt: now()
+    };
+    conversations.unshift(conv);
+    activeId = conv.id;
+  }
   await persist();
   if (render) {
     applyMode();
@@ -538,6 +601,7 @@ async function createConversation(render = true) {
 function renderAll() {
   renderThread();
   renderConversations();
+  syncNewChatButton();
 }
 
 function renderThread() {

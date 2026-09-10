@@ -71,6 +71,15 @@ body {
   background: var(--ink-4);
 }
 
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.icon-btn:disabled:hover {
+  background: transparent;
+}
+
 .icon-btn svg {
   width: 18px;
   height: 18px;
